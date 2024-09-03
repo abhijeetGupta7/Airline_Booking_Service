@@ -24,7 +24,7 @@ module.exports = {
       status: {
         type:Sequelize.ENUM,
         values: [PENDING,BOOKED,CANCELLED,INITIATED],
-        defaultValue: PENDING,
+        defaultValue: INITIATED,
         allowNull:false
       },
       noOfSeats: {
