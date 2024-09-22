@@ -54,10 +54,8 @@ class BookingService {
             const bookingTime = new Date(bookingDetails.createdAt);
             const currentTime = new Date();
             if(currentTime-bookingTime > 600000) { // timer for 10 mintues (in milliseconds)
-                await this.#bookingRepository.update(data.bookingId, {
-                    status: CANCELLED 
-                }, transaction)
-                throw new AppError("The booking has been expired");
+                await this.cancelBooking(data.bookingId);
+                throw new AppError("The Booking Time has been expired");
             }
             
             if(data.userId!=bookingDetails.userId) {
@@ -69,11 +67,35 @@ class BookingService {
 
             // We assume here that payment is successfull (it's beacuse, here we are not actually integrating a payment gateway, so it's kind of a sample/simple dummy)
             // After payment is successfull, Update the status of Booking to BOOKED
-            return await this.#bookingRepository.update(data.bookingId, {
+            await this.#bookingRepository.update(data.bookingId, {
                 status: BOOKED 
             }, transaction)
             await transaction.commit();
-            return response;
+            return true;
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async cancelBooking(bookingId) {
+        const transaction = await db.sequelize.transaction();
+        try {
+            const bookingDetails = await this.#bookingRepository.get(bookingId,transaction);
+            if(bookingDetails.status==CANCELLED) {
+                await transaction.commit();
+                return true;
+            }
+            
+            // increate the seats as booking has been cancelled
+            await axios.patch(`${FLIGHT_SEARCH_SERVICE_URL}/api/v1/flights/${bookingDetails.flightId}/seats/`,{ seats:bookingDetails.noOfSeats, dec:'false' });
+    
+            // status updation to CANCELLED
+            await this.#bookingRepository.update(bookingId, {
+                status: CANCELLED 
+            }, transaction)
+
+            await transaction.commit();
         } catch (error) {
             await transaction.rollback();
             throw error;
