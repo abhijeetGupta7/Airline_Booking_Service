@@ -4,6 +4,8 @@ const { SuccessResponse, ErrorResponse } = require("../utils/common");
 
 const bookingService=new BookingService();
 
+const inMemoryCache={};
+
 async function createBooking(req,res) {
     try {
         const response= await bookingService.createBooking({
@@ -25,6 +27,19 @@ async function createBooking(req,res) {
 
 async function makePayment(req,res) {
     try {
+        const idempotencyKey=req.headers['x-idempotencykey'];
+        if(!idempotencyKey) {
+            console.log(idempotencyKey);
+            ErrorResponse.message="Something went wrong while making payment";
+            ErrorResponse.error={ details: "Idempotency key not found" };
+            return res.status(StatusCodes.BAD_REQUEST).json(ErrorResponse);        
+        }
+        if(inMemoryCache[idempotencyKey]) {
+            ErrorResponse.message="Something went wrong while making payment";
+            ErrorResponse.error={ details: "Payment aready done" };
+            return res.status(StatusCodes.BAD_REQUEST).json(ErrorResponse);        
+        }
+          
         const response= await bookingService.makePayment({
             bookingId:req.body.bookingId,
             totalCost:req.body.totalCost,
@@ -32,6 +47,8 @@ async function makePayment(req,res) {
         });
         SuccessResponse.message="Successfully Booked the Booking";   
         SuccessResponse.data=response;
+        
+        inMemoryCache[idempotencyKey]=idempotencyKey;
         
         return res.status(StatusCodes.CREATED).json(SuccessResponse);        
     } catch (error) {

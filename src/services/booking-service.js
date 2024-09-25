@@ -101,9 +101,19 @@ class BookingService {
             throw error;
         }
     }
+
+    async cancelOldBookings() {
+        try {
+            const response=await this.#bookingRepository.cancelOldBookings();
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    }
 }
 
 module.exports=BookingService;
 
 // Once payment has been done, then repayment option will not be there, bcz even after success of booking,
-// when one again tries tp do payment after sometime, it accepts, and then due to time limit, it cancells the booking. kuch bhi mtlb ho rha, so we ahve to handle it
+// when one again tries to do payment after sometime, it accepts, and then due to time limit, it cancells the booking. kuch bhi mtlb ho rha, so we have to handle it
+// We have addressed the issue by checking whether the seat status is already SUCCESS or not, if yes then we don't cancel the booking
