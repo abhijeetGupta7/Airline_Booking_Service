@@ -7,6 +7,7 @@ const { BAD_REQUEST } = require("http-status-codes");
 const { BookingRepository } = require("../repositories");
 
 const { Enums } = require("../utils/common");
+const { sendMessage } = require("../config/queue-config");
 const { BOOKED, CANCELLED }=Enums.BOOKING_STATUS;
 
 
@@ -32,8 +33,8 @@ class BookingService {
             const booking=await this.#bookingRepository.createBooking(bookingPayload,transaction);
             
             await axios.patch(`${FLIGHT_SEARCH_SERVICE_URL}/api/v1/flights/${data.flightId}/seats/`,{ seats:data.noOfSeats });
-
-        await transaction.commit();
+        
+            await transaction.commit();
         return booking;
         } catch (error) {
             await transaction.rollback();
@@ -71,9 +72,23 @@ class BookingService {
                 status: BOOKED 
             }, transaction)
             await transaction.commit();
+            
+            // TODO: Refactor and send Proper Details
+            const flightId=bookingDetails.flightId;
+            const userId=bookingDetails.userId;
+            const userDetailsResponse=await axios.get(`http://localhost:3001/api/v1/user/${userId}/`);
+            const userDetails=userDetailsResponse.data.data;
+            bookingDetails.status=BOOKED;
+            sendMessage('noti-queue',{
+                Subject: "Booking and Payment Done Successfully",
+                recipientEmail:userDetails.email,
+                body: bookingDetails
+            });
+
             return true;
         } catch (error) {
             await transaction.rollback();
+            console.log(error);
             throw error;
         }
     }
