@@ -224,8 +224,5 @@ npm start
 
 ---
 
-## Folder Structure
-
-Refer to the [project structure](#) for more details.
 
 
